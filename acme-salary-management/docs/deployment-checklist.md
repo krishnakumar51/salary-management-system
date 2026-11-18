@@ -2,7 +2,7 @@
 
 Tick each box only after you have actually done and observed it. Replace `<backend>` and `<frontend>` with your Vercel URLs. Background and settings: README section 18.
 
-Status when this was written: items marked ✅ were completed and verified by the author on 2026-11-18; everything else is **not yet done**.
+Status: items marked ✅ were observed by the author on 2026-11-18 (database work, and reachability/health of the deployed frontend and backend). The browser-level checks in sections C–E and the final demo are for the product owner to tick.
 
 ## A. Database (Neon)
 - [x] ✅ Neon database created (pooled and direct connection strings available)
@@ -16,15 +16,15 @@ Status when this was written: items marked ✅ were completed and verified by th
 - [ ] Project created; Root Directory set; Python 3.12 (from `.python-version`)
 - [ ] Env vars set: `DATABASE_URL` (pooled), `JWT_SECRET`, `CORS_ORIGINS`, `APP_ENV=production`
 - [ ] First build log shows dependencies installed from `pyproject.toml` and the FastAPI entrypoint detected (`app/main.py`)
-- [ ] Backend deployed
-- [ ] `curl https://<backend>/health` → `{"status":"ok"}`
-- [ ] `curl "https://<backend>/health?deep=true"` → `{"status":"ok"}` (proves the Neon connection)
+- [x] ✅ Backend deployed (`https://acme-salary-api.vercel.app`)
+- [x] ✅ `curl https://<backend>/health` → `{"status":"ok"}` (observed 2026-11-18)
+- [x] ✅ `curl "https://<backend>/health?deep=true"` → `{"status":"ok"}` (proves the Neon connection; observed 2026-11-18)
 - [ ] `https://<backend>/docs` is **not** available (production)
 
 ## C. Frontend (Vercel project, Root Directory `acme-salary-management/frontend`)
 - [ ] Project created; preset Vite; build `npm run build`, output `dist`
 - [ ] `VITE_API_BASE_URL=https://<backend>` set **before** the build
-- [ ] Frontend deployed
+- [x] ✅ Frontend deployed (`https://salary-management-system-theta.vercel.app/` returned HTTP 200 on 2026-11-18)
 - [ ] Deep link works (open `https://<frontend>/employees` directly and refresh; no 404)
 - [ ] Frontend connected to backend (login page can reach the API; no "not configured" message)
 

@@ -1,8 +1,78 @@
 # ACME Salary Management System
 
-A centralised web application that replaces ACME's Excel-based salary tracking. An HR Manager can search ~10,000 employees, maintain profiles, change compensation (fixed or percentage increments) with an immutable history, and analyse pay across countries and currencies (INR / USD / EUR) in a chosen reporting currency.
+**A full-stack HR compensation management platform for organizations managing approximately 10,000 employees across multiple countries.** It replaces Excel-based salary tracking with a searchable employee directory, compensation management with a permanent salary history, multi-currency reporting (INR / USD / EUR) and compensation analytics.
 
-*Built for the Incubyte Software Craftsperson assessment.* Deeper design notes: [requirements](docs/requirements.md) · [architecture](docs/architecture.md) · [database design](docs/database-design.md) · [decisions & trade-offs](docs/decisions.md) · [implementation status](docs/implementation-plan.md) · [deployment checklist](docs/deployment-checklist.md).
+*Built for the Incubyte Software Craftsperson assessment.*
+
+**Built with:** React · TypeScript · Vite · Tailwind CSS · Python · FastAPI · SQLAlchemy · PostgreSQL · Neon · Vercel
+
+---
+
+## LIVE DEMO AND ASSESSMENT ACCESS
+
+| Resource | Link |
+|---|---|
+| **Live application (frontend)** | <https://salary-management-system-theta.vercel.app/> |
+| **Backend API** | <https://acme-salary-api.vercel.app> |
+| **Backend health check** | <https://acme-salary-api.vercel.app/health> |
+| **Backend deep health check** (also queries the database) | <https://acme-salary-api.vercel.app/health?deep=true> |
+| **Loom demonstration** | <https://www.loom.com/share/d930b4ad9db94a119bf53edf16761781> |
+| **Source code** | <https://github.com/krishnakumar51/salary-management-system> |
+
+### Demo HR login (assessment demonstration credentials)
+
+| | |
+|---|---|
+| **Email** | `hr.manager@acme-demo.com` |
+| **Password** | `E585XxXpInjTX4WA` |
+
+> **These are assessment demonstration credentials, not real employee or production credentials.** The account exists only so reviewers can try the application. All 10,000 employees, salaries and exchange rates in the demo database are **fictional, generated seed data**. Do not reuse this password for any personal or production account. Because the demo is shared, other visitors may have changed some records.
+
+### How it is deployed
+
+One GitHub monorepo, deployed as two separate Vercel projects plus a managed database:
+
+| Part | Hosted on | Vercel project root directory | Notes |
+|---|---|---|---|
+| **Frontend** (React SPA) | **Vercel** | `acme-salary-management/frontend` | Vite build to `dist/`, single-page-app rewrite |
+| **Backend** (FastAPI) | **Vercel Python Functions** | `acme-salary-management/backend` | Entrypoint `app/main.py`, Python 3.12, stateless requests |
+| **Database** (PostgreSQL) | **Neon** | n/a | The API uses Neon's *pooled* connection; migrations and seeding run separately |
+
+The database connection string, JWT secret and every other secret live only in the Vercel project settings (and in git-ignored local `.env` files). **None are stored in this repository.** Exact settings: [section 18](#18-production-deployment-vercel--neon) and the [deployment checklist](acme-salary-management/docs/deployment-checklist.md).
+
+---
+
+## Highlights
+
+- Employee directory with **10,000 seeded records**.
+- **Search, sorting, filtering and pagination**, all executed in PostgreSQL.
+- Employee profiles and compensation management.
+- **Percentage-based and fixed salary increments.**
+- **Complete salary change history** (append-only; recorded in the same transaction as the change).
+- **INR, USD and EUR** support, with every salary kept in its original currency.
+- **Reporting-currency conversion** using stored exchange rates (the rate date is shown).
+- **Department-wise and country-wise analytics.**
+- **HR Manager authentication** (bcrypt + JWT).
+
+## Verified quality
+
+Results from the final verification run on 18 Nov 2026:
+
+| Check | Result |
+|---|---|
+| Backend tests (pytest, real PostgreSQL) | **138 passing** |
+| Frontend tests (Vitest + React Testing Library) | **50 passing** |
+| TypeScript compilation (`tsc --noEmit`) | **Successful** |
+| Production frontend build (`npm run build`) | **Successful** (also verified from a clean Git checkout) |
+| Live backend `/health` and `/health?deep=true` | **Returned `{"status":"ok"}`** when checked |
+
+Docker Compose was written but **not run** (Docker was unavailable); see [Known limitations](#20-known-limitations-and-deliberate-exclusions). Commands to re-run everything: [section 15](#15-running-tests).
+
+## Documentation
+
+[Requirements](acme-salary-management/docs/requirements.md) · [Architecture](acme-salary-management/docs/architecture.md) · [Database design](acme-salary-management/docs/database-design.md) · [Decisions & trade-offs](acme-salary-management/docs/decisions.md) · [Implementation status](acme-salary-management/docs/implementation-plan.md) · [Deployment checklist](acme-salary-management/docs/deployment-checklist.md)
+
+---
 
 ## 1. Problem statement
 ACME has ~10,000 employees in several countries. HR tracks salaries in spreadsheets, which makes it slow to find a person, impossible to trust the history of a salary, and hard to see how pay is distributed, especially when salaries are in different currencies.
@@ -36,7 +106,7 @@ ACME has ~10,000 employees in several countries. HR tracks salaries in spreadshe
 Browser (React SPA on Vercel) ──HTTPS + JWT──▶ FastAPI (Vercel Python Function) ──SQLAlchemy──▶ Neon PostgreSQL (pooled)
                                          migrations + seed run separately from your machine (direct connection)
 ```
-Backend layers: `api/routes` (HTTP only) → `services` (business rules, transactions) → `repositories` (queries) → `models` (schema). Stateless by design: JWT auth, no sessions, background jobs or local files, so it suits short-lived serverless requests. See [architecture](docs/architecture.md).
+Backend layers: `api/routes` (HTTP only) → `services` (business rules, transactions) → `repositories` (queries) → `models` (schema). Stateless by design: JWT auth, no sessions, background jobs or local files, so it suits short-lived serverless requests. See [architecture](acme-salary-management/docs/architecture.md).
 
 ## 6. Directory structure
 ```
@@ -61,7 +131,7 @@ acme-salary-management/
 - `NUMERIC(14,2)` money, `NUMERIC(18,8)` rates. No floats.
 - A database trigger rejects `UPDATE` / `DELETE` on `salary_history`.
 - B-tree indexes on the directory filter/sort columns; unique indexes on code and email.
-Details: [database design](docs/database-design.md).
+Details: [database design](acme-salary-management/docs/database-design.md).
 
 ## 8. Currency handling
 - Every salary keeps its **original currency**; converting for reporting never modifies stored data.
@@ -82,7 +152,7 @@ Details: [database design](docs/database-design.md).
 - Passwords are stored as **bcrypt** hashes; login returns a signed **JWT** (HS256, default 8 h) sent as `Authorization: Bearer`. Unknown email and wrong password give the same response.
 - No secret has a default: `JWT_SECRET` (≥ 16 chars), database URLs and seed credentials come from environment variables. `.env` files are git-ignored.
 - CORS is an explicit allow-list (`CORS_ORIGINS`); inputs are validated on client and server; API docs are disabled when `APP_ENV=production`.
-- Trade-offs (JWT in `localStorage`, no login rate-limit) are in [decisions](docs/decisions.md).
+- Trade-offs (JWT in `localStorage`, no login rate-limit) are in [decisions](acme-salary-management/docs/decisions.md).
 
 ## 11. Local development setup
 Prerequisites: Python 3.12+, Node 20+, PostgreSQL 14+ (or the embedded option below).
@@ -169,7 +239,7 @@ docker compose run --rm backend python -m seed.run
 App `http://localhost:5173`, API `http://localhost:8000/docs`. **The Compose files were written but never executed**: Docker is not installed on the machine this was built on. Treat them as unverified.
 
 ## 18. Production deployment (Vercel + Neon)
-Two Vercel projects from one GitHub repo. Nothing deploys automatically; the steps below are manual. Use the [deployment checklist](docs/deployment-checklist.md) to track them.
+Two Vercel projects from one GitHub repo (live URLs at the top of this README). Nothing deploys automatically; the steps below are manual. Use the [deployment checklist](acme-salary-management/docs/deployment-checklist.md) to track them.
 
 ### 18.1 Neon
 1. Create a Neon project/database. From **Connect**, copy both strings: **Pooled** (host contains `-pooler`) and **Direct**.
@@ -233,9 +303,9 @@ Cold starts of the function and of a suspended Neon compute can add a second or 
 - Hourly pay is annualised at 2,080 h; UK / Singapore / Canada payrolls use EUR / USD because only INR / USD / EUR are supported.
 - Over the internet, a request to Neon (Singapore region) takes roughly 2-4 s end to end from some locations; against a local database the same calls take 25-200 ms.
 
-**Not verified by the author:** Docker Compose, and the Vercel deployment (no deployment has been made). The Neon database was migrated, seeded and queried through the API. The UI has no automated browser test: it relies on component tests plus manual checking.
+**Not verified by the author:** Docker Compose (Docker was unavailable). The deployed app's `/health` and `/health?deep=true` were checked and the Neon database was migrated, seeded and queried through the API; the UI has no automated browser test and relies on component tests plus manual checking.
 
-**Deliberately excluded** (see [requirements](docs/requirements.md)): LLM/AI features, Redis/Celery/background workers, microservices, a live FX API, multi-role RBAC/SSO, payroll/tax/benefits, hard-deleting employees, bulk import through the UI.
+**Deliberately excluded** (see [requirements](acme-salary-management/docs/requirements.md)): LLM/AI features, Redis/Celery/background workers, microservices, a live FX API, multi-role RBAC/SSO, payroll/tax/benefits, hard-deleting employees, bulk import through the UI.
 
 ## License
 MIT

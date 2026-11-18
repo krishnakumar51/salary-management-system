@@ -18,7 +18,7 @@ Status legend: ✅ done and verified · 🟡 implemented, not verifiable in this
 | 12 | Frontend tests (directory, search, filters, pagination, increment math, validation, states) | ✅ | 43 Vitest tests |
 | 13 | Neon: migrate + seed + query through the API | ✅ | `alembic current` = 0001; 10,000 employees / 23,225 history rows; API read paths verified against independent SQL |
 | 14 | Pure-Python driver fallback + engine factory; analytics fixes found on that path (trends GROUP BY, rate precision, exact range edges) | ✅ | regression tests in `test_pg8000_driver.py`, `test_search.py` |
-| 15 | Vercel configs (frontend SPA rewrite + build, backend entrypoint / limits / ignore) | 🟡 | files present and documented; **not deployed** |
+| 15 | Vercel configs + deployment (frontend, backend, Neon) | ✅ | both projects deployed; frontend HTTP 200; backend `/health` and `/health?deep=true` return ok (checked 2026-11-18). In-browser flows on the deployed app are covered by the deployment checklist, not re-verified here |
 | 16 | Docker Compose + Dockerfiles | 🟡 | files present; Docker is not installed on the build machine, so **never run** |
 | 17 | README, docs, deployment checklist | ✅ | `README.md`, `docs/` |
 
@@ -28,4 +28,4 @@ Status legend: ✅ done and verified · 🟡 implemented, not verifiable in this
 - Local API on the seeded dataset: list/search/filter ≈ 36–91 ms; dashboard ≈ 200 ms; analytics ≈ 25–70 ms. Over the internet to Neon (Singapore) the same calls take ≈ 2–4 s end to end.
 
 ## Not verified / follow-ups
-Docker Compose and the Vercel deployment (see statuses above); cross-browser/mobile visual QA; load testing beyond a single user; concurrency behaviour of the row lock.
+Docker Compose (see statuses above); cross-browser/mobile visual QA; load testing beyond a single user; concurrency behaviour of the row lock.
