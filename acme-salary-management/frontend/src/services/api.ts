@@ -1,4 +1,10 @@
-const BASE = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
+// Dev convenience only: a production build must be given VITE_API_BASE_URL explicitly, otherwise
+// every request fails with a clear message instead of silently calling localhost.
+export function resolveApiBase(configured: string | undefined, isProd: boolean): string | null {
+  if (configured) return configured.replace(/\/$/, "");
+  return isProd ? null : "http://localhost:8000";
+}
+const BASE = resolveApiBase(import.meta.env.VITE_API_BASE_URL, import.meta.env.PROD);
 const TOKEN_KEY = "acme.token";
 
 export interface FieldError {
@@ -69,6 +75,9 @@ export async function request<T>(
   path: string,
   opts: { params?: Params; body?: unknown } = {},
 ): Promise<T> {
+  if (BASE === null) {
+    throw new ApiError(0, "not_configured", "The app is not configured: VITE_API_BASE_URL was not set when this build was created.");
+  }
   const headers: Record<string, string> = { Accept: "application/json" };
   const token = tokenStore.get();
   if (token) headers.Authorization = `Bearer ${token}`;
