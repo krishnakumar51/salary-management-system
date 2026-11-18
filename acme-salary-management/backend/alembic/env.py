@@ -1,19 +1,20 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine  # noqa: F401
 from sqlalchemy.pool import NullPool
 
 import app.models  # noqa: F401  (register all tables on the metadata)
 from app.core.config import get_settings
 from app.db.base import Base
+from app.db.engine import build_engine
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-url = get_settings().database_url
+url = get_settings().migration_database_url  # DATABASE_URL_DIRECT if set
 
 
 def run_migrations_offline() -> None:
@@ -25,7 +26,7 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     # Migrations run from a developer machine/CI, never inside a serverless request.
     # Prefer Neon's *direct* (non-pooled) connection string for DDL.
-    engine = create_engine(url, poolclass=NullPool)
+    engine = build_engine(url, poolclass=NullPool)
     with engine.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata, compare_type=True)
         with context.begin_transaction():

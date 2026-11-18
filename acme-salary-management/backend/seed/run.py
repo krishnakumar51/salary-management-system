@@ -1,6 +1,6 @@
 """Bulk-load the deterministic ACME dataset. Run as a standalone script, never via HTTP.
 
-    python -m seed.run                       # 10,000 employees into $DATABASE_URL
+    python -m seed.run                       # 10,000 employees into $DATABASE_URL_DIRECT (else $DATABASE_URL)
     python -m seed.run --count 500           # smaller dataset
     python -m seed.run --database-url "postgresql://...neon.tech/neondb?sslmode=require"
 
@@ -17,14 +17,18 @@ from itertools import islice
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from sqlalchemy import bindparam, create_engine, insert, select, update
+from sqlalchemy import Integer, column, insert, select, update, values
 from sqlalchemy.orm import Session
 
+from app.db.engine import build_engine
 from app.models import Compensation, Country, Department, Employee, SalaryHistory
 from seed.generator import DEFAULT_SEED, SeedEmployee, generate
 from seed.reference import ensure_reference_data, ensure_user
 
-CHUNK = 1000
+# Rows per statement. Each chunk is ONE multi-row `INSERT ... VALUES`, i.e. one network round trip,
+# which matters against a remote database (executemany costs a round trip per row on some drivers).
+# 500 rows x ~17 columns stays far below PostgreSQL's 65,535 bind-parameter limit.
+CHUNK = 500
 
 
 class SeedSettings(BaseSettings):
@@ -32,6 +36,7 @@ class SeedSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
     database_url: str
+    database_url_direct: str | None = None  # preferred for bulk loading when set
     seed_admin_email: str = Field(min_length=3)
     seed_admin_password: str = Field(min_length=8)
     seed_admin_name: str = "HR Manager"
@@ -59,30 +64,34 @@ def seed(db: Session, people: list[SeedEmployee], admin_id: int) -> dict[str, in
 
     for batch in _chunks(fresh, CHUNK):
         db.execute(
-            insert(Employee),
-            [
-                {
-                    "employee_code": p.employee_code, "first_name": p.first_name, "last_name": p.last_name,
-                    "email": p.email, "phone": p.phone, "country_id": countries[p.country_code],
-                    "department_id": departments[p.department], "designation": p.designation,
-                    "employment_type": p.employment_type, "joining_date": p.joining_date, "status": p.status,
-                }
-                for p in batch
-            ],
+            insert(Employee).values(
+                [
+                    {
+                        "employee_code": p.employee_code, "first_name": p.first_name,
+                        "last_name": p.last_name, "email": p.email, "phone": p.phone,
+                        "country_id": countries[p.country_code], "department_id": departments[p.department],
+                        "designation": p.designation, "employment_type": p.employment_type,
+                        "joining_date": p.joining_date, "status": p.status,
+                    }
+                    for p in batch
+                ]
+            )
         )
     id_by_code = {code: i for code, i in db.execute(select(Employee.employee_code, Employee.id))}
     code_of = {p.index: p.employee_code for p in people}
 
     for batch in _chunks(fresh, CHUNK):
         db.execute(
-            insert(Compensation),
-            [
-                {
-                    "employee_id": id_by_code[p.employee_code], "amount": p.current.new_amount,
-                    "currency": p.currency, "frequency": p.frequency, "effective_date": p.current.effective_date,
-                }
-                for p in batch
-            ],
+            insert(Compensation).values(
+                [
+                    {
+                        "employee_id": id_by_code[p.employee_code], "amount": p.current.new_amount,
+                        "currency": p.currency, "frequency": p.frequency,
+                        "effective_date": p.current.effective_date,
+                    }
+                    for p in batch
+                ]
+            )
         )
     comp_by_emp = {e: c for e, c in db.execute(select(Compensation.employee_id, Compensation.id))}
 
@@ -104,19 +113,18 @@ def seed(db: Session, people: list[SeedEmployee], admin_id: int) -> dict[str, in
                     "created_at": datetime.combine(c.effective_date, time(9, 0), tzinfo=UTC),
                 }
             )
-    for batch in _chunks(history_rows, CHUNK * 2):
-        db.execute(insert(SalaryHistory), batch)
+    for batch in _chunks(history_rows, CHUNK):
+        db.execute(insert(SalaryHistory).values(batch))
 
     managers = [
-        {"b_id": id_by_code[p.employee_code], "b_mgr": id_by_code[code_of[p.manager_index]]}
+        (id_by_code[p.employee_code], id_by_code[code_of[p.manager_index]])
         for p in fresh
         if p.manager_index is not None and code_of[p.manager_index] in id_by_code
     ]
+    emp = Employee.__table__
     for batch in _chunks(managers, CHUNK):
-        db.execute(
-            update(Employee.__table__).where(Employee.__table__.c.id == bindparam("b_id")).values(manager_id=bindparam("b_mgr")),
-            batch,
-        )
+        v = values(column("id", Integer), column("manager_id", Integer), name="v").data(batch)
+        db.execute(update(emp).where(emp.c.id == v.c.id).values(manager_id=v.c.manager_id))
     return {"inserted": len(fresh), "skipped_existing": len(people) - len(fresh), "history_rows": len(history_rows)}
 
 
@@ -124,19 +132,25 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--count", type=int, default=10_000)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
-    parser.add_argument("--database-url", help="Overrides DATABASE_URL")
+    parser.add_argument("--database-url", help="Overrides DATABASE_URL / DATABASE_URL_DIRECT")
     args = parser.parse_args(argv)
     if args.database_url:
         os.environ["DATABASE_URL"] = args.database_url
+        os.environ["DATABASE_URL_DIRECT"] = args.database_url  # an explicit URL beats the env file
     try:
         cfg = SeedSettings()  # type: ignore[call-arg]
-    except Exception as exc:  # missing env => explain instead of a stack trace
-        print(f"Configuration error: {exc}\nSet DATABASE_URL, SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD.", file=sys.stderr)
+    except Exception:  # missing env => explain instead of a stack trace (never echo values)
+        print(
+            "Configuration error: set DATABASE_URL (and optionally DATABASE_URL_DIRECT), "
+            "SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD (min 8 chars).",
+            file=sys.stderr,
+        )
         return 2
 
     people = generate(args.count, args.seed)
     print(f"Generated {len(people)} employees (seed={args.seed}).")
-    engine = create_engine(_normalise(cfg.database_url), pool_pre_ping=True)
+    target = cfg.database_url_direct or cfg.database_url
+    engine = build_engine(_normalise(target), pool_pre_ping=True)
     with Session(engine) as db, db.begin():
         ensure_reference_data(db)
         admin = ensure_user(db, cfg.seed_admin_email, cfg.seed_admin_password, cfg.seed_admin_name)

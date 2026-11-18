@@ -65,7 +65,8 @@ Sign in with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` from your backend `.env`
 **Backend (`backend/.env`)**
 | Variable | Required | Notes |
 |---|---|---|
-| `DATABASE_URL` | yes | `postgresql://user:pass@host/db`. In production use Neon's **pooled** string. `postgres://` / `postgresql://` are normalised to the psycopg 3 driver. |
+| `DATABASE_URL` | yes | Used by the running API. `postgresql://user:pass@host/db?sslmode=require`. With Neon use the **pooled** string (host contains `-pooler`). `postgres://` / `postgresql://` are normalised to the psycopg 3 driver; `-pooler` hosts automatically disable prepared statements. |
+| `DATABASE_URL_DIRECT` | no | Used by **Alembic and the seed script**. With Neon use the **direct** string (same host without `-pooler`). Falls back to `DATABASE_URL` when unset. Not needed on Vercel. |
 | `JWT_SECRET` | yes | ≥ 16 chars. `python -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `CORS_ORIGINS` | yes | Comma-separated allowed frontend origins, e.g. `http://localhost:5173`. |
 | `APP_ENV` | no | `development` (default) or `production` (serverless pooling, API docs off). |
@@ -83,7 +84,7 @@ alembic upgrade head      # apply
 alembic downgrade base    # revert everything
 alembic check             # verify models and migrations agree
 ```
-Migrations are run by you (or CI), **never inside a serverless request**. Against Neon use the **direct (non-pooled)** connection string for migrations.
+Migrations are run by you (or CI), **never inside a serverless request**. Alembic reads `DATABASE_URL_DIRECT` (Neon's **direct, non-pooled** string) and falls back to `DATABASE_URL`.
 
 ## Seeding
 The seed is a standalone, deterministic (`seed=20260101`), re-runnable script. It creates countries, departments, exchange rates, the HR user, 10,000 employees with compensation, managers, and ~23,000 salary-history rows (single transaction). Re-running skips employees that already exist (matched by employee code or email), so nothing is duplicated.
@@ -91,14 +92,19 @@ The seed is a standalone, deterministic (`seed=20260101`), re-runnable script. I
 python -m seed.run                       # 10,000 employees into $DATABASE_URL
 python -m seed.run --count 500           # smaller set
 ```
-**Against Neon** (use the *direct* connection string, with `?sslmode=require`):
+**Against Neon**: put both Neon strings in `backend/.env` (`DATABASE_URL` = pooled, `DATABASE_URL_DIRECT` = direct; never commit `.env`), then:
 ```bash
 cd backend
-export SEED_ADMIN_EMAIL="hr@yourcompany.com"
-export SEED_ADMIN_PASSWORD="choose-a-strong-password"
-DATABASE_URL="postgresql://USER:PASSWORD@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require" alembic upgrade head
-python -m seed.run --database-url "postgresql://USER:PASSWORD@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require"
+alembic upgrade head          # reads DATABASE_URL_DIRECT
+python -m seed.run            # reads DATABASE_URL_DIRECT (about 1-2 minutes over the internet)
 ```
+Verify the employee count by running `select count(*) from employees;` in the Neon SQL Editor (expect 10000), or:
+```bash
+python -c "from sqlalchemy import text; from app.core.config import get_settings as g; from app.db.engine import build_engine as b; print(b(g().migration_database_url).connect().execute(text('select count(*) from employees')).scalar())"
+```
+A one-off URL also works: `python -m seed.run --database-url "<direct url>"`.
+
+> **Windows Application Control / blocked psycopg:** use the pure-Python fallback. `pip install pg8000` (or `pip install -e ".[pg8000]"`) and write the scheme as `postgresql+pg8000://...` in `.env`. The app, Alembic and the seed all go through `app/db/engine.py`, which turns `sslmode=require` into a verifying TLS context for pg8000.
 Seeded exchange rates are *indicative* (1 USD = 83.25 INR = 0.92 EUR, effective 2026-01-01). Update them under **Settings → Exchange rates**.
 
 > Data assumption: only INR/USD/EUR are supported, so United Kingdom payroll is in EUR and Singapore/Canada in USD (documented in [decisions](docs/decisions.md)).
@@ -126,7 +132,7 @@ Two separate Vercel projects from the same GitHub repo. No Railway/Render, nothi
 ### 1. Neon (database)
 1. Create a Neon project and database.
 2. Copy **two** connection strings from the dashboard: **Direct** (for migrations/seed) and **Pooled** (host contains `-pooler`, for the API).
-3. From your machine run migrations and the seed against the **direct** URL (see *Seeding*).
+3. Put them in `backend/.env` as `DATABASE_URL_DIRECT` / `DATABASE_URL`, then run migrations and the seed from your machine (see *Seeding*). On Vercel set only `DATABASE_URL` (pooled).
 
 ### 2. Backend project (FastAPI on Vercel Python Functions)
 1. Push the repo to GitHub. In Vercel: **Add New → Project**, import the repo.

@@ -47,6 +47,8 @@ def _ensure_psycopg() -> None:
 
 
 _ensure_psycopg()
+if ".neon.tech" in url:  # the suite TRUNCATEs every table: never let it near a hosted database
+    raise RuntimeError("Refusing to run tests against a Neon database. Unset TEST_DATABASE_URL.")
 os.environ["DATABASE_URL"] = url
 os.environ["JWT_SECRET"] = "test-secret-key-for-pytest-only-0123456789"
 os.environ["APP_ENV"] = "test"

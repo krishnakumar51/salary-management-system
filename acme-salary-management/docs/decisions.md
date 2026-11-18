@@ -26,3 +26,7 @@
 | 22 | **Consistent error envelope** `{"error": {code, message, details[]}}` | Frontend maps `details[].field` straight onto form fields. | — |
 | 23 | **Two-step confirmation for salary changes** (form → review → confirm), terminate needs confirm | Salary changes are permanent in the ledger. | One extra click. |
 | 24 | **Chart colours from a validated colour-blind-safe palette**; single series use one hue; paired series (average/median) use two adjacent slots with a legend | Accessibility. | — |
+| 25 | **Two database URLs: `DATABASE_URL` (pooled, app) and `DATABASE_URL_DIRECT` (Alembic + seed)**; one engine factory (`app/db/engine.py`) | Neon's pooler (PgBouncer) is right for short-lived requests but wrong for DDL and long bulk loads. One factory keeps pooler/TLS handling in one place. | Direct URL is optional (falls back), so local setups need one variable. |
+| 26 | **`postgresql+pg8000://` fallback driver** (URL scheme selects it; `sslmode=require` becomes a verifying TLS context) | Some locked-down Windows machines block psycopg's compiled/libpq libraries. | pg8000 is slower and not in the default dependencies; Vercel uses psycopg. |
+| 27 | **Seed uses multi-row `INSERT ... VALUES` chunks (500 rows)** | One round trip per chunk instead of per row: ~76 s to a remote Neon instance. | Statement size is bounded by the 65,535 bind-parameter limit (chunk size keeps well below). |
+| 28 | **Test suite refuses to run against a `.neon.tech` URL** | The suite TRUNCATEs every table. | - |
