@@ -6,7 +6,7 @@ terminated. Headcount breakdowns cover every employee.
 
 from decimal import Decimal
 
-from sqlalchemy import ColumnElement, Select, func, literal, select
+from sqlalchemy import ColumnElement, Select, func, literal, literal_column, select
 from sqlalchemy.orm import Session
 
 from app.models import Compensation, Country, Department, Employee, SalaryHistory
@@ -165,7 +165,7 @@ def recent_changes(db: Session, limit: int = 10):
     return db.execute(stmt).all()
 
 
-def monthly_trends(db: Session, rates: Rates, months: int = 24) -> list[dict]:
+def monthly_trends(db: Session, rates: Rates, months: int = 120) -> list[dict]:
     latest = db.scalar(
         select(func.max(SalaryHistory.effective_date)).where(SalaryHistory.change_type != "initial")
     )
@@ -182,8 +182,11 @@ def monthly_trends(db: Session, rates: Rates, months: int = 24) -> list[dict]:
     stmt = (
         select(month, func.count(), func.avg(SalaryHistory.increment_percentage), func.avg(rep))
         .where(SalaryHistory.change_type != "initial", SalaryHistory.effective_date >= cutoff)
-        .group_by(month)
-        .order_by(month)
+        # Group/order by output position, not by re-stating the expression: drivers that send the
+        # 'YYYY-MM' literal as a separate bind parameter (pg8000) would otherwise make the SELECT and
+        # GROUP BY expressions differ and PostgreSQL rejects the query.
+        .group_by(literal_column("1"))
+        .order_by(literal_column("1"))
     )
     return [
         {

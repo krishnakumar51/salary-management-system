@@ -180,3 +180,13 @@ def test_employee_without_compensation_still_listed(client, auth, db, ids):
     add_employee(db, ids, 50, first="No", last="Pay", amount=None)
     r = client.get(API, params={"q": "No Pay"}, headers=auth)
     assert r.json()["items"][0]["compensation"] is None
+
+
+def test_salary_range_is_inclusive_at_exact_converted_edges(client, auth, db, ids):
+    """EUR 46,000 is exactly USD 50,000 at 0.92 EUR/USD; a rounded 1/0.92 factor used to land a hair
+    below and silently drop the employee from a 'min 50,000' filter."""
+    add_employee(db, ids, 1, first="Edge", last="Low", country="DE", amount="46000", currency="EUR")
+    add_employee(db, ids, 2, first="Edge", last="High", country="DE", amount="82800", currency="EUR")  # USD 90,000
+    add_employee(db, ids, 3, first="Edge", last="Out", country="DE", amount="45999.99", currency="EUR")
+    r = client.get(API, params={"salary_min": 50000, "salary_max": 90000, "currency": "USD"}, headers=auth)
+    assert sorted(names(r)) == ["Edge High", "Edge Low"]

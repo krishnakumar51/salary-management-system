@@ -135,7 +135,7 @@ export function AnalyticsView() {
       </ChartCard>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <ChartCard title="Compensation changes per month" description="Number of increments and updates (initial records excluded)">
+        <ChartCard title="Compensation changes per month" description="Number of increments and updates per month, last 10 years (initial records excluded)">
           <Section q={trends}>
             {(d) =>
               d.points.length === 0 ? (

@@ -118,3 +118,10 @@ def test_conversion_does_not_modify_stored_salaries(client, auth, make_employee,
     client.get("/api/v1/analytics/dashboard", params={"currency": "EUR"}, headers=auth)
     c = db.query(Compensation).one()
     assert (c.amount, c.currency) == (D("1500000.00"), "INR")
+
+
+def test_resolved_rate_keeps_an_exact_fraction():
+    r = fx.resolve_rate(snap(("USD", "EUR", "0.92", JAN)), "EUR", "USD")
+    assert (r.num, r.den) == (D(1), D("0.92"))
+    t = fx.resolve_rate(snap(("USD", "INR", "80", JAN), ("USD", "EUR", "0.5", JUN)), "INR", "EUR")
+    assert (t.num, t.den) == (D("0.5"), D("80"))
