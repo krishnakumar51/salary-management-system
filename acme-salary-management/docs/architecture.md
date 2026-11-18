@@ -10,9 +10,9 @@
         ▼
  Neon PostgreSQL (pooled connection string)
 
- Out-of-band, never inside a request:
-   alembic upgrade head      → schema
-   python -m seed.run        → 10,000-employee dataset
+ Out-of-band, never inside a request (use the DIRECT Neon URL, DATABASE_URL_DIRECT):
+   python -m alembic upgrade head   → schema
+   python -m seed.run               → 10,000-employee dataset
 ```
 
 ## Backend layers (`backend/app`)
@@ -24,7 +24,7 @@
 | `repositories` | Query construction: employee search/filter/sort/pagination, analytics aggregates, reusable SQL expressions (annualise + convert). |
 | `models` | SQLAlchemy models, constraints, indexes, the immutability trigger DDL. |
 | `core` | Settings (env), error envelope, JWT/bcrypt, constants. |
-| `db` | Engine/session; `NullPool` + no server-side prepared statements when `APP_ENV=production` (PgBouncer-safe). |
+| `db` | `engine.py` is the single engine factory (app, Alembic, seed): disables prepared statements on Neon `-pooler` hosts, and supports a `postgresql+pg8000://` fallback driver with verifying TLS. `session.py` uses `NullPool` when `APP_ENV=production`. |
 
 `app/main.py` exposes `app` (FastAPI) — the zero-config entrypoint Vercel detects. `/health` is liveness; `/health?deep=true` also checks the database.
 
