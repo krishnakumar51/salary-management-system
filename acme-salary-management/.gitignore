@@ -10,6 +10,9 @@ venv/
 .coverage
 htmlcov/
 
+# --- Source dirs that generic ignore templates wrongly catch (e.g. a stock Python `lib/` rule) ---
+!frontend/src/lib/
+
 # --- Node / frontend ---
 node_modules/
 dist/
