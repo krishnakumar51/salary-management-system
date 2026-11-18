@@ -72,6 +72,23 @@ Docker Compose was written but **not run** (Docker was unavailable); see [Known 
 
 [Requirements](docs/requirements.md) · [Architecture](docs/architecture.md) · [Database design](docs/database-design.md) · [Decisions & trade-offs](docs/decisions.md) · [Implementation status](docs/implementation-plan.md) · [Deployment checklist](docs/deployment-checklist.md)
 
+## Engineering Documentation
+
+The assessment's engineering artifacts live in [`docs/`](../docs/) at the repository root:
+
+| Document | What it covers |
+|---|---|
+| [Requirements and scope](../docs/requirements-and-scope.md) | Problem understanding, functional and non-functional requirements traced to code and tests, deliberate exclusions and assumptions |
+| [Architecture](../docs/architecture.md) | System overview with a diagram, responsibilities of frontend / backend / database / deployment, main data flows, the authentication flow, the 24-operation API surface |
+| [Architecture diagram source](../docs/architecture.mmd) | The Mermaid source of that diagram |
+| [Design decisions](../docs/design-decisions.md) | Technology choices, database design, multi-currency handling, search and pagination, security and serverless trade-offs, with alternatives not taken |
+| [Testing and performance](../docs/testing-and-performance.md) | Test approach, counts per file, verification results, defects the verification found, seed-data scale, observed timings, limitations |
+| [AI usage](../docs/ai-usage.md) | What the AI assistant did, what the human owner did, and how the output was checked |
+
+**Architecture in brief:** a React + TypeScript single-page app (Vercel) calls a stateless FastAPI backend (Vercel Python Functions) with a JWT; the backend is layered (routes → services → repositories → models) and talks to Neon PostgreSQL through its pooled connection. Search, filtering, sorting, pagination and all analytics run in PostgreSQL; money is `NUMERIC`/`Decimal`; every salary change is one transaction that also writes an append-only history row.
+
+**Two documentation sets:** `docs/` (above) holds the assessment artifacts; [`acme-salary-management/docs/`](docs/) holds implementation-level notes: [database design](docs/database-design.md), the full [decisions table](docs/decisions.md), the [implementation status](docs/implementation-plan.md) and the [deployment checklist](docs/deployment-checklist.md).
+
 ---
 
 ## 1. Problem statement

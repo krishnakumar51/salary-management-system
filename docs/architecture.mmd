@@ -1,0 +1,28 @@
+flowchart LR
+    user(["HR Manager in a browser"])
+    dev(["Developer machine<br/>Alembic migrations and seed script"])
+
+    subgraph fe["Vercel project: frontend  (root acme-salary-management/frontend)"]
+        spa["React + TypeScript SPA<br/>Vite build, static files<br/>React Router, TanStack Query<br/>JWT kept in browser localStorage"]
+    end
+
+    subgraph be["Vercel project: backend  (root acme-salary-management/backend, Python Functions)"]
+        api["FastAPI app<br/>app/main.py<br/>CORS allow-list, error envelope"]
+        auth["Authentication<br/>bcrypt password check<br/>JWT HS256, Bearer dependency"]
+        svc["Services and repositories<br/>SQLAlchemy 2.0, Decimal money<br/>one transaction per salary change"]
+        api --> auth
+        api --> svc
+    end
+
+    subgraph neon["Neon PostgreSQL"]
+        pooled[("Pooled endpoint<br/>PgBouncer")]
+        tables[("employees, compensation,<br/>salary_history append-only,<br/>exchange_rates, users,<br/>audit_logs, countries, departments")]
+        pooled --> tables
+    end
+
+    user -->|"1. open the app (HTTPS)"| spa
+    spa -->|"2. POST /api/v1/auth/login"| api
+    auth -.->|"3. signed JWT"| spa
+    spa -->|"4. REST calls with Authorization: Bearer token"| api
+    svc -->|"5. SQL over DATABASE_URL (pooled)"| pooled
+    dev -->|"DATABASE_URL_DIRECT (direct)"| tables
