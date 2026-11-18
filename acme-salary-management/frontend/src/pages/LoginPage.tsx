@@ -4,7 +4,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { InlineAlert } from "@/components/common";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Field, Input } from "@/components/ui/form";
+import { Field, Input, PasswordInput } from "@/components/ui/form";
 import { useAuth } from "@/hooks/auth";
 import { ApiError } from "@/services/api";
 
@@ -41,19 +41,18 @@ export default function LoginPage() {
   return (
     <div className="grid min-h-full place-items-center bg-canvas px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center justify-center gap-3">
-          <span className="grid size-10 place-items-center rounded-xl bg-brand-600 text-white shadow-card">
-            <svg viewBox="0 0 32 32" className="size-6" aria-hidden>
+        <div className="mb-7 flex flex-col items-center text-center">
+          <span className="grid size-12 place-items-center rounded-xl bg-brand-600 text-white shadow-card">
+            <svg viewBox="0 0 32 32" className="size-7" aria-hidden>
               <path d="M9 22 16 9l7 13h-4l-3-6-3 6z" fill="currentColor" />
             </svg>
           </span>
-          <div>
-            <p className="text-lg font-semibold leading-tight text-ink">ACME</p>
-            <p className="text-xs text-ink-faint">Salary Management</p>
-          </div>
+          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-brand-600">ACME</p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-ink">Salary Management</h1>
+          <p className="mt-1.5 text-sm text-ink-soft">Employee compensation, in one place.</p>
         </div>
         <Card className="p-6">
-          <h1 className="text-lg font-semibold text-ink">Sign in</h1>
+          <h2 className="text-lg font-semibold text-ink">Sign in</h2>
           <p className="mt-1 text-sm text-ink-soft">Use your HR Manager account.</p>
           <form onSubmit={submit} className="mt-5 space-y-4" noValidate>
             {error && <InlineAlert>{error}</InlineAlert>}
@@ -64,9 +63,8 @@ export default function LoginPage() {
             </Field>
             <Field id="password" label="Password">
               {(p) => (
-                <Input
+                <PasswordInput
                   {...p}
-                  type="password"
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

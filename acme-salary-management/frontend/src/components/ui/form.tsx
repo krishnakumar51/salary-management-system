@@ -1,3 +1,4 @@
+import { Eye, EyeOff } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -10,7 +11,36 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
 );
 Input.displayName = "Input";
 
-export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
+/** Password field with a show/hide toggle. Keeps the Input's props (id, aria-*, autocomplete…). */
+export const PasswordInput = React.forwardRef<HTMLInputElement, Omit<React.InputHTMLAttributes<HTMLInputElement>, "type">>(
+  ({ className, ...props }, ref) => {
+    const [visible, setVisible] = React.useState(false);
+    const Icon = visible ? EyeOff : Eye;
+    return (
+      <div className="relative">
+        <input
+          ref={ref}
+          type={visible ? "text" : "password"}
+          className={cn(control, "pr-11", className)}
+          {...props}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? "Hide password" : "Show password"}
+          aria-pressed={visible}
+          title={visible ? "Hide password" : "Show password"}
+          className="absolute right-1 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-ink-faint hover:bg-canvas hover:text-ink"
+        >
+          <Icon className="size-4" />
+        </button>
+      </div>
+    );
+  },
+);
+PasswordInput.displayName = "PasswordInput";
+
+export const Textarea =React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
   ({ className, ...props }, ref) => (
     <textarea ref={ref} className={cn(control, "h-auto min-h-20 py-2", className)} {...props} />
   ),
