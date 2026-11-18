@@ -1,0 +1,12 @@
+.venv
+.env
+.pgdata
+tests
+seed
+scripts
+alembic
+alembic.ini
+Dockerfile
+.dockerignore
+__pycache__
+.pytest_cache
